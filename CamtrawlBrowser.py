@@ -215,7 +215,7 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
             roll.append(self.toFloat(parts[3]))
 
         #  set the plot style
-        mpl.style.use('seaborn')
+        mpl.style.use('seaborn-v0_8')
         #  create a figure and sxes
         fig, ax = plt.subplots()
         scale = 20.0
@@ -291,7 +291,7 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
             cameraVoltage[parts[1]].append(self.toFloat(parts[2][1:-1]))
             cameraTemp[parts[1]].append(self.toFloat(parts[4]))
 
-        mpl.style.use('seaborn')
+        mpl.style.use('seaborn-v0_8')
         fig, axes = plt.subplots(nrows=2)
 
         #  plot the voltages
