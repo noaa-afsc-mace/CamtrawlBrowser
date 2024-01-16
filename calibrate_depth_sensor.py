@@ -25,7 +25,6 @@ import dbConnection
 from PyQt6 import QtCore
 
 
-
 def asc_file_to_depth(filename, latitude):
 
     def pressureToDepth(p, lat):
@@ -89,9 +88,7 @@ def asc_file_to_depth(filename, latitude):
 
         line = f.readline().rstrip('\n')
 
-
     return sbe_depth, sbe_time
-
 
 
 class calibrate_depth_sensor(QtCore.QObject):
@@ -115,20 +112,20 @@ class calibrate_depth_sensor(QtCore.QObject):
         #  data from the SBE using CLAMS_SBE_Downloader then set this to true. If
         #  you downloaded SBE data using SeaTerm to create an .asc file set this to
         #  false
-        useDatabase = False
-
+        useDatabase = True
 
         #  define the path to the CamTrawl metadata database file
-        #camtrawlDb = 'W:/DY1807-3a/Camtrawl/Haul_072/D20180726-T040853'
+        camtrawlDb = 'X:/DY2400/Camtrawl/Haul_001/D20240114-T214626'
         #camtrawlDb = 'C:/Users/rick.towler/Desktop/Coral Dropcam Depth Calibration'
-        camtrawlDb = 'C:/Users/rick.towler/Work/CoralDepthCal_23/D20230703-T022422'
+        #camtrawlDb = 'C:/Users/rick.towler/Work/CoralDepthCal_23/D20230703-T022422'
 
         #  define the path to the SBE data file (.asc) file
         #sbeASCFile = 'C:/Users/rick.towler/Desktop/Coral Dropcam Depth Calibration/calibration station.asc'
         sbeASCFile = 'C:/Users/rick.towler/Work/CoralDepthCal_23/testdrop2.asc'
 
 
-        sbe_latitude = 59.6
+        #sbe_latitude = 59.6
+        sbe_latitude = 47.7
 
         #  specify the smoothing window for the CT depth data (needs to be odd)
         smoothWindow = 15
@@ -136,25 +133,25 @@ class calibrate_depth_sensor(QtCore.QObject):
         #  specify the existing slope and intercept of the camtrawl system
         #  obtained from the zoidberg app on camtrawl. These are used to back
         #  out the existing calibration to obtain raw sensor values.
-        ex_slope = 0.0387
-        ex_intercept = -121.8000
+        ex_slope = 0.05703
+        ex_intercept = -159.5663
 
         #  Specify the time offset of CamTrawl when compared to the SBE data.
         #  If things are working this shouldn't be required and the offset
         #  should be set to 0
-        CamTrawlTimeOffset = -60*60*7
+        CamTrawlTimeOffset = 0# -60*60*7
 
 
         #  These settings are only relevant when useDatabase is set to True
 
         #  define the ship, survey, and event id we're going to pull the SBE data from
-        ship = '157'
-        survey = '201807'
-        event_id = '72'
+        ship = '999'
+        survey = '201499'
+        event_id = '20'
 
         #  define the SBE device ID of the SBE connected to CamTrawl
         #  THIS IS THE DEVICE ID, NOT THE SERIAL NUMBER
-        device_id = '36'
+        device_id = '46'
 
         # ======================================================================
 
@@ -182,6 +179,7 @@ class calibrate_depth_sensor(QtCore.QObject):
                     " AND survey=" + survey + " AND event_id=" + event_id +
                     " AND device_id=" + device_id + " AND measurement_type='SBEDepth' " +
                     "ORDER BY time_stamp ASC")
+            print(sql)
             query = self.db.dbQuery(sql)
             for timestamp_str, depth in query:
                 sbe_depth.append(float(depth))
@@ -193,7 +191,6 @@ class calibrate_depth_sensor(QtCore.QObject):
             #  we're not using the database so we get depth from an SBE .asc file
             #  created when downloading from Seaterm.
             sbe_depth, sbe_time = asc_file_to_depth(sbeASCFile, sbe_latitude)
-
 
         #  get the start end end SBE times
         sbeStartTime = sbe_time[0]
@@ -260,7 +257,7 @@ class calibrate_depth_sensor(QtCore.QObject):
         sbe_depth_interp = f(ct_time)
 
 
-        #  ------------   Compare the exisitng data   ------------
+        #  ------------   Compare the existing data   ------------
         #  create a figure
         fig = plt.figure(figsize=(12,7))
 
@@ -327,18 +324,11 @@ class calibrate_depth_sensor(QtCore.QObject):
         QtCore.QCoreApplication.instance().quit()
 
 
-
-
-
-
 if __name__ == "__main__":
     import sys
     app = QtCore.QCoreApplication(sys.argv)
     form = calibrate_depth_sensor('afsc-64', 'clamsbase2', 'pollock')
-    sys.exit(app.exec_())
-
-
-
+    sys.exit(app.exec())
 
 
 

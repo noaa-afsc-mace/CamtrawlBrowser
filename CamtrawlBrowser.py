@@ -65,14 +65,13 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
         self.imageSlider.valueChanged[int].connect(self.changeImage)
         #self.imageSlider.keyPressEvent.connect(self.changeImage)
 
-
         #  restore the application state
         self.appSettings = QSettings('afsc.noaa.gov', 'CamtrawlBrowser')
         position = self.appSettings.value('winposition', QPoint(10,10))
         size = self.appSettings.value('winsize', QSize(1000,700))
 
         if not resetWindowPosition:
-            #  make sure the program is on the screen
+            #  check the current position and size to make sure the app is on the screen
             position, size = self.checkWindowLocation(position, size)
 
             #  now move and resize the window
@@ -128,45 +127,7 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
         helpTimer.setSingleShot(True)
         helpTimer.timeout.connect(self.showHelpImage)
         helpTimer.start(250)
-
-
-    def checkWindowLocation(self, position, size):
-        '''
-        checkWindowLocation accepts a window position (QPoint) and size (QSize)
-        and returns a potentially new position and size if the window is currently
-        positioned off the screen.
-        '''
-
-        #  determine the current virtual screen size
-        screenObj = QGuiApplication.primaryScreen()
-        screenGeometry = screenObj.availableVirtualGeometry()
-
-        #  assume the new and old positions are the same
-        newPosition = position
-        newSize = size
-
-        #  check if the upper left corner of the window is off the screen
-        if position.x() < screenGeometry.x():
-            newPosition.setX(10)
-        if position.x() >= screenGeometry.x():
-            newPosition.setX(10)
-        #  check if the window title bar is off the top of the screen
-        if position.y() < screenGeometry.y():
-            newPosition.setY(10)
-        #  check if the window title bar is off the bottom of the screen
-        #  Subtract 50 pixels from the position to ensure that
-        #  the title bar is clear of the taskbar
-        if (position.y() - 50) >= screenGeometry.y():
-            newPosition.setY(10)
-
-        #  now make sure the lower right (resize handle) is on the screen
-        if (newPosition.x() + newSize.width()) > screenGeometry.width():
-            newSize.setWidth(screenGeometry.width() - newPosition.x() - 5)
-        if (newPosition.y() + newSize.height()) > screenGeometry.height():
-            newSize.setWidth(screenGeometry.height() - newPosition.y() - 5)
-
-        return [newPosition, newSize]
-
+        
 
     def showHelpImage(self):
 
@@ -1000,6 +961,74 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
     def moveSlider(self):
         self.imageSlider.setValue(self.imageSlider.value()+1)
 
+
+    def checkWindowLocation(self, position, size, padding=[5, 25]):
+        '''
+        checkWindowLocation accepts a window position (QPoint) and size (QSize)
+        and returns a potentially new position and size if the window is currently
+        positioned off the screen.
+
+        This function uses QScreen.availableVirtualGeometry() which returns the full
+        available desktop space *not* including taskbar. For all single and "typical"
+        multi-monitor setups this should work reasonably well. But for multi-monitor
+        setups where the monitors may be different resolutions, have different
+        orientations or different scaling factors, the app may still fall partially
+        or totally offscreen. A more thorough check gets complicated, so hopefully
+        those cases are very rare.
+
+        If the user is holding the <shift> key while this method is run, the
+        application will be forced to the primary monitor.
+        '''
+
+        #  create a QRect that represents the app window
+        appRect = QRect(position, size)
+
+        #  check for the shift key which we use to force a move to the primary screem
+        resetPosition = QGuiApplication.queryKeyboardModifiers() == Qt.KeyboardModifier.ShiftModifier
+        if resetPosition:
+            position = QPoint(padding[0], padding[0])
+
+        #  get a reference to the primary system screen - If the app is off the screen, we
+        #  will restore it to the primary screen
+        primaryScreen = QGuiApplication.primaryScreen()
+
+        #  assume the new and old positions are the same
+        newPosition = position
+        newSize = size
+
+        #  Get the desktop geometry. We'll use availableVirtualGeometry to get the full
+        #  desktop rect but note that if the monitors are different resolutions or have
+        #  different scaling, some parts of this rect can still be offscreen.
+        screenGeometry = primaryScreen.availableVirtualGeometry()
+
+        #  if the app is partially or totally off screen or we're force resetting
+        if resetPosition or not screenGeometry.contains(appRect):
+
+            #  check if the upper left corner of the window is off the left side of the screen
+            if position.x() < screenGeometry.x():
+                newPosition.setX(screenGeometry.x() + padding[0])
+            #  check if the upper right is off the right side of the screen
+            if position.x() + size.width() >= screenGeometry.width():
+                p = screenGeometry.width() - size.width() - padding[0]
+                if p < padding[0]:
+                    p = padding[0]
+                newPosition.setX(p)
+            #  check if the top of the window is off the top/bottom of the screen
+            if position.y() < screenGeometry.y():
+                newPosition.setY(screenGeometry.y() + padding[0])
+            if position.y() + size.height() >= screenGeometry.height():
+                p = screenGeometry.height() - size.height() - padding[1]
+                if p < padding[0]:
+                    p = padding[0]
+                newPosition.setY(p)
+
+            #  now make sure the lower right (resize handle) is on the screen
+            if (newPosition.x() + newSize.width()) > screenGeometry.width():
+                newSize.setWidth(screenGeometry.width() - newPosition.x() - padding[0])
+            if (newPosition.y() + newSize.height()) > screenGeometry.height():
+                newSize.setHeight(screenGeometry.height() - newPosition.y() - padding[1])
+
+        return [newPosition, newSize]
 
 if __name__ == "__main__":
 
