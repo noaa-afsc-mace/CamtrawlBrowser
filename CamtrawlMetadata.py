@@ -12,6 +12,7 @@ import os
 import datetime
 import csv
 import base64
+import pynmea2
 from PyQt6 import QtCore
 from PyQt6 import QtSql
 
@@ -29,12 +30,21 @@ class CamTrawlMetadata(QtCore.QObject):
         self.imageExtension = ''
         self.clear()
         self.dbConnectionName = None
+        self.depthSensorID = 'CTControl'
+        self.depthSensorHeader = '$OHPR'
+        self.depthFieldNum = 5
+        self.locationSensorID = 'GPS'
+
+
+
 
 
     def clear(self):
 
         self.startImage = -1
         self.endImage = 0
+        self.startTime = None
+        self.endTime = None
         self.cameras = {}
         self.imageData = {}
         self.marks = {}
@@ -44,6 +54,220 @@ class CamTrawlMetadata(QtCore.QObject):
         self.deploymentData = {}
         self.asyncData = {}
         self.imageNumbers = []
+
+
+    def updateDeployentMetadata(self, fromData='first', location=[None,None],
+            overwrite=False):
+        '''
+        updateDeployentMetadata updates the deployment table's lat, lon, and max
+        depth columns. You can provide an explicit location using the location
+        argument. If that is not provided, the lat/lon will be extracted from the
+        location data (if available.) You can specify whether the lat/lon pair
+        is extracted from the first location value, the middle
+        '''
+
+        if (not self.dbConnectionName):
+            return
+        db = QtSql.QSqlDatabase.database(self.dbConnectionName)
+
+        #  check if lat data exists, we'll assume the other data does if this does
+        #  If it doesn't, or overwrite is set, we'll get the data and update the table
+        sql = ("SELECT latitude FROM deployment")
+        query = QtSql.QSqlQuery(sql, db)
+        if not query.first() or overwrite:
+
+            #  get the max depth of the deployment
+            _, depthMax, _ = self.getDepths()
+
+            #  check if we were given a location. If not, get it from the data
+            if location[0] is None or location[1] is None:
+
+                #  get the location data
+                _, locations = self.getLocations()
+                locFrames = list(locations.keys())
+
+                #  check if there is any location data
+                if locFrames:
+                    #  extract the value
+                    if fromData.lower() == 'first':
+                        dataLoc = locations[locFrames[0]]
+                    elif fromData.lower() == 'middle':
+                        middle = float(len(locFrames))/2
+                        dataLoc = locations[locFrames[int(middle - .5)]]
+                    elif fromData.lower() == 'last':
+                        dataLoc = locations[locFrames[-1]]
+                else:
+                    #  no location data available
+                    dataLoc = ['', '']
+
+                #  fill in missing lat and or lon
+                if location[0] is None:
+                    location[0]  = dataLoc[0]
+                if location[1] is None:
+                    location[1]  = dataLoc[1]
+
+            #  update the lat, lon, and max depth in the deployment table
+            sql = ("UPDATE deployment SET latitude=" + str(location[0]) + ", longitude=" +
+                    str(location[1]) + ", max_depth=" + str(depthMax) + ")")
+            query = QtSql.QSqlQuery(sql, db)
+            query.exec()
+
+
+    def getTimespan(self):
+        """
+        getTimespan returns the start time and end time of the data that has been read
+        using the query method. It returns a list of datetime objects [start time, end time]
+        Times are based on image times.
+
+        This method is called automatically when the query() method is called and usually
+        doesn't need to be called separately.
+        """
+
+        timespan = [None, None]
+
+        #  make sure we have data to work with. If the user hasn't already explicitly queried
+        #  the data, we'll assume they want the span for all data
+        if not self.imageData:
+            self.query()
+
+        for camera in self.cameras:
+            startFrame = min(self.imageData[camera].keys())
+            endFrame = max(self.imageData[camera].keys())
+
+            startTime = self.imageData[camera][startFrame][0]
+            endTime = self.imageData[camera][endFrame][0]
+
+            if timespan[0] is None:
+                timespan[0] = startTime
+            else:
+                if startTime < timespan[0]:
+                    timespan[0] = startTime
+            if timespan[1] is None:
+                timespan[1] = endTime
+            else:
+                if endTime > timespan[1]:
+                    timespan[1] = endTime
+
+        return timespan
+
+
+    def getDepths(self, depthSensorID='CTControl', depthSensorHeader='$OHPR',
+            depthFieldNum=5, parseChar = ','):
+        '''
+        getDepths returns the min/max deployment depths and the per image depths if depth
+        data was recorded during the deployment. The default arguments work on standard
+        Camtrawl systems. You may need to set these arguments to ensure the depth data
+        is extracted properly if you are storing data differently.
+
+            depthSensorID: specifies the sensor that provides the depth data
+                default: 'CTControl'
+            depthSensorHeader: specifies the message header of the message that contains
+                the depth data.
+                default = '$OHPR'
+            depthFieldNum: specifies the zero indexed field number of the depth value.
+                default = 5
+            parseChar: specifies the separator in the sensor datagram
+
+        '''
+        #  make sure we have data to work with. If the user hasn't already explicitly queried
+        #  the data, we'll assume they want the span for all data
+
+        if not self.imageData:
+            self.query()
+
+        depthMin = 999999
+        depthMax = -999999
+        depths = {}
+
+        if depthSensorID in self.sensorData:
+            if depthSensorHeader in self.sensorData[depthSensorID]:
+                for imageNum, data in self.sensorData[depthSensorID][depthSensorHeader].items():
+                    try:
+                        depth = data.split(parseChar)[depthFieldNum]
+                        depth = float(depth)
+                        if depth > depthMax:
+                            depthMax = depth
+                        elif depth < depthMin:
+                            depthMin = depth
+                    except:
+                        depth = None
+
+                    depths[imageNum] = depth
+
+        return depthMin, depthMax, depths
+
+
+    def getLocations(self, locationSensorID='GPS'):
+        '''
+        getLocations returns the deployment bounds and per image lat/lon pairs if
+        GPS data was recorded as synchronous data during deployment. You must specify
+        the locationSensorID if your system does not use 'GPS' as the sensor ID for
+        a sensor that provides location data. Standard Camtrawl systems use 'GPS'.
+
+        This method will process all GPS datagrams for each image and assign the
+        location if a datagram provides valid location data. Once an image is assigned
+        a location, further datagrams for that image will be ignored.
+
+        '''
+        #  make sure we have data to work with. If the user hasn't already explicitly queried
+        #  the data, we'll assume they want the span for all data
+
+        if not self.imageData:
+            self.query()
+
+        latMin = 999999
+        latMax = -999999
+        lonMin = 999999
+        lonMax = -999999
+        locations = {}
+
+        #  allow for case insensitive matching on the location sensor ID name
+        if locationSensorID not in self.sensorData:
+            if locationSensorID.lower() in self.sensorData:
+                locationSensorID = locationSensorID.lower()
+            if locationSensorID.upper() in self.sensorData:
+                locationSensorID = locationSensorID.upper()
+
+        if locationSensorID in self.sensorData:
+
+            headers = self.sensorData[locationSensorID].keys()
+            for header in headers:
+                for imageNum, data in self.sensorData[locationSensorID][header].items():
+                    #  check if we already have a location for this image number - if so we'll skip this message
+                    if imageNum not in locations:
+                        #  parse the nmea string - we'll parse everything and fill in the location data
+                        try:
+                            msg_data = pynmea2.parse(data)
+                            if hasattr(msg_data,'latitude') and hasattr(msg_data,'longitude'):
+                                if hasattr(msg_data,'status'):
+                                    if msg_data.status.lower() == 'a':
+                                        #  if there is a status message, make sure the fix is good
+                                        locations[imageNum] = (msg_data.latitude, msg_data.longitude)
+                                elif hasattr(msg_data,'quality'):
+                                    if msg_data.quality > 0:
+                                        #  if there is a quality message, make sure the fix is good
+                                        locations[imageNum] = (msg_data.latitude, msg_data.longitude)
+                                else:
+                                    #  no quality or status so we just assume we're good
+                                    locations[imageNum] = (msg_data.latitude, msg_data.longitude)
+
+                                #  if we have a fix, update the bounds
+                                if imageNum in locations:
+                                    if locations[imageNum][0] > latMax:
+                                        latMax = locations[imageNum][0]
+                                    elif locations[imageNum][0] < latMin:
+                                        latMin = locations[imageNum][0]
+                                    if locations[imageNum][1] > lonMax:
+                                        lonMax = locations[imageNum][1]
+                                    elif locations[imageNum][1] < lonMin:
+                                        lonMin = locations[imageNum][1]
+                        except:
+                            #  skip this message if it can't be parsed
+                            pass
+
+        deploymentBounds = ((latMin,lonMin), (latMin,lonMax), (latMax,lonMax), (latMax,lonMin))
+
+        return deploymentBounds, locations
 
 
     def open(self, deploymentPath, dbConnectionName='CTMetadata'):
@@ -70,6 +294,21 @@ class CamTrawlMetadata(QtCore.QObject):
             #  Here we update/add in any new metadata elements that might be lacking from files created
             #  using an older format.
 
+            #  if videos table doesn't exist, create it
+            if (not 'videos' in db.tables()):
+                query = QtSql.QSqlQuery("CREATE TABLE videos (camera TEXT NOT NULL, filename TEXT NOT NULL, " +
+                        "start_frame INTEGER NOT NULL, end_frame INTEGER NOT NULL, start_time TEXT NOT NULL, " +
+                        "end_time TEXT NOT NULL, PRIMARY KEY(camera, filename))", db)
+                query.exec()
+
+            #  if deployment table doesn't exist, create it
+            if (not 'deployment' in db.tables()):
+                query = QtSql.QSqlQuery("CREATE TABLE deployment (deployment_name TEXT, survey_name TEXT, " +
+                        "vessel_name TEXT, camera_name TEXT, survey_description TEXT, deployment_time TEXT, " +
+                        "deployment_latitude NUMBER, deployment_longitude NUMBER, max_deployment_depth NUMBER, " +
+                        "comments TEXT)", db)
+                query.exec()
+
             #  if marks table doesn't exist, create it
             if (not 'marks' in db.tables()):
                 query = QtSql.QSqlQuery("CREATE TABLE marks (frame_number INTEGER, mark_description TEXT)", db)
@@ -77,8 +316,8 @@ class CamTrawlMetadata(QtCore.QObject):
 
             #  if deployment_data table doesn't exist, create it
             if (not 'deployment_data' in db.tables()):
-                query = QtSql.QSqlQuery("CREATE TABLE deployment_data (deployment_parameter TEXT NOT NULL," +
-                        "parameter_value TEXT NOT NULL, PRIMARY KEY(deployment_parameter ))", db)
+                query = QtSql.QSqlQuery("CREATE TABLE deployment_data (deployment_parameter TEXT NOT NULL, " +
+                        "parameter_value TEXT NOT NULL, PRIMARY KEY(deployment_parameter))", db)
                 query.exec()
                 #  and insert initial default parameters
                 query = QtSql.QSqlQuery("INSERT INTO deployment_data (deployment_parameter,parameter_value) " +
@@ -92,7 +331,7 @@ class CamTrawlMetadata(QtCore.QObject):
                         "PRIMARY KEY(time,sensor_id,header))", db)
                 query.exec()
 
-            #   if the cameras table doesn't contain the "orientation" column, add it
+            #   if the cameras table doesn't contain the "rotation" column, add it
             hasColumn = False
             query = QtSql.QSqlQuery("PRAGMA table_info(cameras);", db)
             while query.next():
@@ -192,7 +431,6 @@ class CamTrawlMetadata(QtCore.QObject):
             self.imageExtension = None
             query = QtSql.QSqlQuery("SELECT parameter_value FROM deployment_data WHERE deployment_parameter=" +
                     "'image_file_type'", db)
-            query.exec()
             if query.first():
                 if len(query.value(0)) > 0:
                     #  image type in metadata - use it
@@ -435,11 +673,7 @@ class CamTrawlMetadata(QtCore.QObject):
 
         """
 
-        #  get a reference to our database connection - this is the correct way to
-        #  use QSqlDatabase. One should not store this reference as a class property
-        #  since it prevents QSqlDatabase from being correctly cleaned up when the
-        #  application quits. Instead, use the "database" method to get a local
-        #  reference that will be destroyed when the method goes out of scope.
+        #  get a reference to our database connection
         if (not self.dbConnectionName):
             return
         db = QtSql.QSqlDatabase.database(self.dbConnectionName)
@@ -463,7 +697,7 @@ class CamTrawlMetadata(QtCore.QObject):
         #  define the discard clause - used to exclude discarded images metadata
         discardClause = "(discarded IS NULL or discarded=0) AND "
 
-        #try:
+#        try:
 
         #  determine the number of dropped images
         query = QtSql.QSqlQuery("SELECT DISTINCT number FROM dropped;", db)
@@ -658,8 +892,13 @@ class CamTrawlMetadata(QtCore.QObject):
         while query.next():
             self.marks.update({query.value(0):query.value(1)})
 
-        #except:
-        #    raise dbError('Error querying SQLite database')
+
+
+        # set the start and end time of the image data
+        self.startTime, self.endTime = self.getTimespan()
+
+#        except:
+#            raise dbError('Error querying SQLite database')
 
 
     def setDiscarded(self, startFrame, endFrame, unset=False):
@@ -874,12 +1113,12 @@ class CamTrawlMetadata(QtCore.QObject):
         if (not ok):
             raise IOError("Unable to open export file " + outputFile)
         stream = QtCore.QTextStream(exportFile)
-        header = ['camera', 'serial number', 'model', 'label', 'rotation']
+        header = ['camera', 'serial number', 'model', 'label', 'orientation']
         for i in range(len(header) - 1):
             stream  << header[i] << ","
         stream << header[i+1] << "\r\n"
 
-        query = QtSql.QSqlQuery("SELECT camera, mac_address, model, label, rotation FROM cameras", db)
+        query = QtSql.QSqlQuery("SELECT camera, mac_address, model, label, orientation FROM cameras", db)
         while query.next():
             stream  << query.value(0) << "," << query.value(1) << "," \
                     << query.value(2) << "," << query.value(3) << "," \
@@ -1039,11 +1278,12 @@ class MetadataTest(QtCore.QObject):
         timer.start(0)
 
 
-    def RunTest(self):
+    def RunTest(self, printSensorData=False):
         '''
         A simple test script to aid in debugging
         '''
         #  open the test file
+        print("Reading " + self.testFile)
         self.metadata.open(self.testFile)
 
         #  read the data
@@ -1053,11 +1293,30 @@ class MetadataTest(QtCore.QObject):
         cameras = list(self.metadata.cameras.keys())
         print("Cameras: " + str(cameras))
 
-        #  print out the $OHPR sensor data
-        for frame in self.metadata.sensorData['time']:
-            if frame in self.metadata.sensorData['CTControl']['$OHPR']:
-                print(str(self.metadata.sensorData['time'][frame]) + " ::: " +
-                        self.metadata.sensorData['CTControl']['$OHPR'][frame])
+        #  and some info about them
+        for cam in cameras:
+            print("    " + cam + " has " + str(len(self.metadata.imageData[cam])) + " images")
+
+        #  print some stats about sensor data
+        sensors = self.metadata.sensorData.keys()
+        for sensor in sensors:
+            if sensor not in ['time', 'utc_time']:
+                messages = self.metadata.sensorData[sensor].keys()
+                for message in messages:
+                    print("synced sensor " + sensor + ":" + message + " has " + str(len(self.metadata.sensorData[sensor][message])) + " values")
+        sensors = self.metadata.asyncData.keys()
+        for sensor in sensors:
+            messages = self.metadata.asyncData[sensor].keys()
+            for message in messages:
+                print("async sensor " + sensor + ":" + message + " has " + str(len(self.metadata.asyncData[sensor][message]['data'])) + " values")
+
+
+        if printSensorData:
+            #  print out the $OHPR sensor data
+            for frame in self.metadata.sensorData['time']:
+                if frame in self.metadata.sensorData['CTControl']['$OHPR']:
+                    print(str(self.metadata.sensorData['time'][frame]) + " ::: " +
+                            self.metadata.sensorData['CTControl']['$OHPR'][frame])
 
 
 if __name__ == "__main__":

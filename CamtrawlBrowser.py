@@ -127,7 +127,7 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
         helpTimer.setSingleShot(True)
         helpTimer.timeout.connect(self.showHelpImage)
         helpTimer.start(250)
-        
+
 
     def showHelpImage(self):
 
@@ -426,6 +426,7 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
                 self.statusBar.showMessage('Reading metadata...')
                 self.metadata.open(self.dataDir)
                 self.metadata.query()
+                self.metadata.updateDeployentMetadata()
 
                 #  and load the deployment
                 self.loadDeployment()
