@@ -242,15 +242,18 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
             cameraVoltage[c] = []
             cameraTemp[c] = []
             cameraTime[c] = []
-        #  and populate these lists
-        for i in range(0, len(self.metadata.asyncData['Camera']['$CTCS']['utc_time'])):
-            #  split the sensor string
-            parts = self.metadata.asyncData['Camera']['$CTCS']['data'][i].split(',')
-            #  get the time
-            cameraTime[parts[1]].append(self.metadata.asyncData['Camera']['$CTCS']['utc_time'][i])
-            #  convert temp and voltage to a float and store
-            cameraVoltage[parts[1]].append(self.toFloat(parts[2][1:-1]))
-            cameraTemp[parts[1]].append(self.toFloat(parts[4]))
+
+        #  check if we have camera voltages available
+        if 'Camera' in self.metadata.asyncData:
+            #  and populate these lists
+            for i in range(0, len(self.metadata.asyncData['Camera']['$CTCS']['utc_time'])):
+                #  split the sensor string
+                parts = self.metadata.asyncData['Camera']['$CTCS']['data'][i].split(',')
+                #  get the time
+                cameraTime[parts[1]].append(self.metadata.asyncData['Camera']['$CTCS']['utc_time'][i])
+                #  convert temp and voltage to a float and store
+                cameraVoltage[parts[1]].append(self.toFloat(parts[2][1:-1]))
+                cameraTemp[parts[1]].append(self.toFloat(parts[4]))
 
         mpl.style.use('seaborn-v0_8')
         fig, axes = plt.subplots(nrows=2)

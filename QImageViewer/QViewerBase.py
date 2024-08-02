@@ -1,4 +1,4 @@
-"""
+F"""
 QViewerBase is a PyQt widget which uses the Qt Graphics View system to display
 "stuff" providing panning, zooming, and other features common to "stuff" display.
 It also has methods for placing marks and lines/polygons and it handles the details
@@ -127,6 +127,7 @@ from .QIVHudText import QIVHudText
 from .QIVMarker import QIVMarker
 from .QIVPolygon import QIVPolygon
 from .QIVPolygonItem import QIVPolygonItem
+from .QIVGrid import QIVGrid
 
 class QViewerBase(QGraphicsView):
 
@@ -273,6 +274,13 @@ class QViewerBase(QGraphicsView):
 
     def saveImage(self, filename):
         """
+        saveImage is the same as saveView and is here for backwards compatibility.
+        """
+        self.saveView(filename)
+
+
+    def saveView(self, filename):
+        """
         save the rendered image to a file. You must provide the full path and
         file name. The image type will be inferred from the file extension. Typical
         values would be "jpg", "jpeg", or "png".
@@ -281,6 +289,41 @@ class QViewerBase(QGraphicsView):
         pixmap = QPixmap()
         pixmap.grabWidget(self)
         ok = pixmap.save(filename)
+        if not ok:
+            raise IOError('Unable to save image ' + filename)
+
+
+    def saveScene(self, filename, width=None, height=None):
+        """
+        save the rendered scene to a file. This saves the entire image, marks, and lines
+        regardless of the current view. The saved image resolution will be defined by the
+        scene size but you can override that by passing a width and height. You must
+        provide the full path and file name. The image type will be inferred from the file
+        extension. Typical values would be "jpg", "jpeg", or "png".
+
+        """
+
+        if width is None:
+            width = self.scene.width()
+        if height is None:
+            height = self.scene.height()
+
+        #  create the empty image to render into and fill
+        image = QImage(width, height,QImage.Format_ARGB32)
+        image.fill(0)
+
+        #  create the painter to render the image
+        painter = QPainter(image)
+        painter.setRenderHints(QPainter.Antialiasing | QPainter.TextAntialiasing)
+
+        #  render it
+        self.scene.render(painter)
+
+        #TODO: Need to figure out how to apply "sticky" scaling from the view.
+        #      Render to a hidden view that's the same size as the scene?
+
+        #  and save
+        ok = image.save(filename)
         if not ok:
             raise IOError('Unable to save image ' + filename)
 
@@ -458,7 +501,7 @@ class QViewerBase(QGraphicsView):
 
     def addText(self, position, text, size=10, font='helvetica', italics=False, weight=-1,
                 color=[0,0,0], alpha=255, halign='left', valign='top', name='QIVText',
-                selectable=False, movable=False):
+                selectable=False, movable=False,drawBackdrop=False, backdropColor=[0,0,0]):
         """
         Add text to the scene given the text and position. The function returns the reference
         to the QIVMarkerText object that is added to the scene.
@@ -495,7 +538,7 @@ class QViewerBase(QGraphicsView):
         #  create a QIVMarkerText based on the input options
         textItem = QIVMarkerText(position, text, size=size, font=font,
                 italics=italics, weight=weight, color=color, alpha=alpha, halign=halign,
-                valign=valign, name=name, view=self, selectable=selectable, movable=movable)
+                valign=valign, name=name, view=self, selectable=selectable, movable=movable,drawBackdrop=False, backdropColor=[0,0,0])
 
         #  add the text directly to the scene
         self.scene.addItem(textItem)
@@ -509,7 +552,7 @@ class QViewerBase(QGraphicsView):
     def addPolygon(self, verts, color=[220,0,0], thickness=1.0, alpha=255,
             linestyle='=', fill=None, selectable=True, movable=False,
             selectThickness=2.0, selectColor=None, closed=True,
-            name='QIVPolygon', noadd=False):
+            name='QIVPolygon', noadd=False, isCosmetic=False):
         """
         Add an arbitrary polygon to the scene. Polygons can be open and unfilled,
         closed and unfilled, or closed and filled.
@@ -552,7 +595,7 @@ class QViewerBase(QGraphicsView):
         #  create the polygon object
         polygon = QIVPolygon(verts, color=color, thickness=thickness,
                  alpha=alpha, linestyle=linestyle, fill=fill, selectable=selectable,
-                 movable=movable, closed=closed, view=self, name=name)
+                 movable=movable, closed=closed, view=self, name=name,isCosmetic=isCosmetic)
 
         if (not noadd):
             #  add the polygon to the scene
@@ -565,7 +608,7 @@ class QViewerBase(QGraphicsView):
 
 
     def addLine(self, verts, color=[220,0,0], thickness=1.0, alpha=255,
-            linestyle='=', selectable=True, movable=True):
+            linestyle='=', selectable=True, movable=True, isCosmetic=False):
         """
         Add an arbitrary line to the scene.
 
@@ -590,7 +633,38 @@ class QViewerBase(QGraphicsView):
         #  addLine is just a simplified interface to addPolygon
         return QViewerBase.addPolygon(self, verts, color=color, thickness=thickness, alpha=alpha,
                     linestyle=linestyle, selectable=selectable, movable=movable,
-                    closed=False)
+                    closed=False, isCosmetic=isCosmetic)
+
+
+    def addGrid(self, layer_verts, layer_labels, interval_verts, interval_labels,
+            color=[0,0,0], thickness=1.0, alpha=255, linestyle='=', isCosmetic=True):
+        """
+        Add an arbitrary line to the scene.
+
+          layer_verts (list)  - A list of [x,y] pairs or a list of QPointF objects
+                color (list)  - A 3 element list or tuple containing the RGB triplet
+                                specifying the color of the text.
+            thickness (float) - A float specifying the line thickness. Note that thickness
+                                is related to scale. The larger your scene is, the thicker
+                                your lines will need to be to be visible when zoomed out.
+                alpha (int)   - An integer specifying the opacity of the text. 0 is transparent
+                                and 255 is solid.
+            linestyle (string)- A character specifying the polygon outline style. "=" is a solid
+                                line, "-" is a dashed line, and "." is a dotted line.
+
+        """
+
+        gridItem = QIVGrid(layer_verts, layer_edges, interval_verts, interval_edges, color=color,
+                             thickness=thickness, alpha=alpha, view=self)
+
+        #  add the grid to the scene
+        self.scene.addItem(gridItem)
+
+        #  and add the grid to our internal list of items
+        self.sceneItems.append(gridItem)
+
+        return gridItem
+
 
 
     def addMark(self, position, style='+', color=[220,0,0], selectColor=[5,220,250],
@@ -737,7 +811,6 @@ class QViewerBase(QGraphicsView):
 
         #  update the viewport
         self.viewport().update()
-
 
     def zoomToPoint(self, point, zoomLevel):
         """
