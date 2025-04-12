@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>533</width>
+    <width>586</width>
     <height>137</height>
    </rect>
   </property>
@@ -29,7 +29,10 @@
       <widget class="QLabel" name="label">
        <property name="font">
         <font>
-         <pointsize>10</pointsize>
+         <family>Arial Black</family>
+         <pointsize>12</pointsize>
+         <weight>75</weight>
+         <bold>true</bold>
         </font>
        </property>
        <property name="text">
@@ -44,7 +47,10 @@
       <widget class="QComboBox" name="leftBox">
        <property name="font">
         <font>
-         <pointsize>10</pointsize>
+         <family>Arial Black</family>
+         <pointsize>12</pointsize>
+         <weight>75</weight>
+         <bold>true</bold>
         </font>
        </property>
       </widget>
@@ -53,7 +59,10 @@
       <widget class="QLabel" name="label_2">
        <property name="font">
         <font>
-         <pointsize>10</pointsize>
+         <family>Arial Black</family>
+         <pointsize>12</pointsize>
+         <weight>75</weight>
+         <bold>true</bold>
         </font>
        </property>
        <property name="text">
@@ -68,7 +77,10 @@
       <widget class="QComboBox" name="rightBox">
        <property name="font">
         <font>
-         <pointsize>10</pointsize>
+         <family>Arial Black</family>
+         <pointsize>12</pointsize>
+         <weight>75</weight>
+         <bold>true</bold>
         </font>
        </property>
       </widget>
@@ -110,7 +122,10 @@
        </property>
        <property name="font">
         <font>
-         <pointsize>10</pointsize>
+         <family>Arial Black</family>
+         <pointsize>12</pointsize>
+         <weight>75</weight>
+         <bold>true</bold>
         </font>
        </property>
        <property name="text">
@@ -122,7 +137,10 @@
       <widget class="QPushButton" name="pbCancel">
        <property name="font">
         <font>
-         <pointsize>10</pointsize>
+         <family>Arial Black</family>
+         <pointsize>12</pointsize>
+         <weight>75</weight>
+         <bold>true</bold>
         </font>
        </property>
        <property name="text">

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1103</width>
-    <height>700</height>
+    <width>1106</width>
+    <height>771</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -33,7 +33,10 @@
        <widget class="QLabel" name="label">
         <property name="font">
          <font>
+          <family>Arial Black</family>
           <pointsize>12</pointsize>
+          <weight>75</weight>
+          <bold>true</bold>
          </font>
         </property>
         <property name="text">
@@ -45,6 +48,7 @@
        <widget class="QLabel" name="deployment">
         <property name="font">
          <font>
+          <family>Arial Black</family>
           <pointsize>12</pointsize>
           <weight>75</weight>
           <bold>true</bold>
@@ -77,7 +81,10 @@
          <widget class="QLabel" name="label_3">
           <property name="font">
            <font>
+            <family>Arial Black</family>
             <pointsize>12</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
            </font>
           </property>
           <property name="text">
@@ -89,7 +96,10 @@
          <widget class="QLabel" name="depth">
           <property name="font">
            <font>
+            <family>Arial Black</family>
             <pointsize>12</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
            </font>
           </property>
           <property name="text">
@@ -101,7 +111,10 @@
          <widget class="QLabel" name="label_2">
           <property name="font">
            <font>
+            <family>Arial Black</family>
             <pointsize>12</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
            </font>
           </property>
           <property name="text">
@@ -113,7 +126,10 @@
          <widget class="QLabel" name="pitch">
           <property name="font">
            <font>
+            <family>Arial Black</family>
             <pointsize>12</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
            </font>
           </property>
           <property name="text">
@@ -125,7 +141,10 @@
          <widget class="QLabel" name="label_4">
           <property name="font">
            <font>
+            <family>Arial Black</family>
             <pointsize>12</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
            </font>
           </property>
           <property name="text">
@@ -137,7 +156,10 @@
          <widget class="QLabel" name="yaw">
           <property name="font">
            <font>
+            <family>Arial Black</family>
             <pointsize>12</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
            </font>
           </property>
           <property name="text">
@@ -149,7 +171,10 @@
          <widget class="QLabel" name="label_6">
           <property name="font">
            <font>
+            <family>Arial Black</family>
             <pointsize>12</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
            </font>
           </property>
           <property name="text">
@@ -161,7 +186,10 @@
          <widget class="QLabel" name="roll">
           <property name="font">
            <font>
+            <family>Arial Black</family>
             <pointsize>12</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
            </font>
           </property>
           <property name="text">
@@ -321,7 +349,8 @@
        <widget class="QGroupBox" name="gbPlay">
         <property name="font">
          <font>
-          <pointsize>10</pointsize>
+          <family>Arial Black</family>
+          <pointsize>11</pointsize>
           <weight>75</weight>
           <bold>true</bold>
          </font>
@@ -362,9 +391,10 @@
           <widget class="QPushButton" name="playBtn">
            <property name="font">
             <font>
-             <pointsize>10</pointsize>
-             <weight>50</weight>
-             <bold>false</bold>
+             <family>Arial Black</family>
+             <pointsize>11</pointsize>
+             <weight>75</weight>
+             <bold>true</bold>
             </font>
            </property>
            <property name="text">
@@ -388,7 +418,8 @@
         </property>
         <property name="font">
          <font>
-          <pointsize>10</pointsize>
+          <family>Arial Black</family>
+          <pointsize>11</pointsize>
           <weight>75</weight>
           <bold>true</bold>
          </font>
@@ -403,9 +434,10 @@
             <widget class="QPushButton" name="pbPreviousMark">
              <property name="font">
               <font>
-               <pointsize>10</pointsize>
-               <weight>50</weight>
-               <bold>false</bold>
+               <family>Arial Black</family>
+               <pointsize>11</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
               </font>
              </property>
              <property name="text">
@@ -417,9 +449,10 @@
             <widget class="QPushButton" name="pbMarkCurrent">
              <property name="font">
               <font>
-               <pointsize>10</pointsize>
-               <weight>50</weight>
-               <bold>false</bold>
+               <family>Arial Black</family>
+               <pointsize>11</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
               </font>
              </property>
              <property name="text">
@@ -431,9 +464,10 @@
             <widget class="QPushButton" name="pbNextMark">
              <property name="font">
               <font>
-               <pointsize>10</pointsize>
-               <weight>50</weight>
-               <bold>false</bold>
+               <family>Arial Black</family>
+               <pointsize>11</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
               </font>
              </property>
              <property name="text">
@@ -449,9 +483,10 @@
             <widget class="QLabel" name="label_5">
              <property name="font">
               <font>
-               <pointsize>10</pointsize>
-               <weight>50</weight>
-               <bold>false</bold>
+               <family>Arial Black</family>
+               <pointsize>11</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
               </font>
              </property>
              <property name="text">
@@ -475,9 +510,10 @@
              </property>
              <property name="font">
               <font>
-               <pointsize>10</pointsize>
-               <weight>50</weight>
-               <bold>false</bold>
+               <family>Arial Black</family>
+               <pointsize>11</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
               </font>
              </property>
             </widget>
@@ -486,9 +522,10 @@
             <widget class="QPushButton" name="pbDeleteMark">
              <property name="font">
               <font>
-               <pointsize>10</pointsize>
-               <weight>50</weight>
-               <bold>false</bold>
+               <family>Arial Black</family>
+               <pointsize>11</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
               </font>
              </property>
              <property name="text">
@@ -518,6 +555,14 @@
        <layout class="QVBoxLayout" name="verticalLayout_4">
         <item>
          <widget class="QPushButton" name="pbTrim">
+          <property name="font">
+           <font>
+            <family>Arial Black</family>
+            <pointsize>10</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
           <property name="text">
            <string>Trim Deployment...</string>
           </property>
@@ -525,6 +570,14 @@
         </item>
         <item>
          <widget class="QPushButton" name="exportBtn">
+          <property name="font">
+           <font>
+            <family>Arial Black</family>
+            <pointsize>10</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
           <property name="text">
            <string>Export Metadata...</string>
           </property>
@@ -532,13 +585,44 @@
         </item>
         <item>
          <widget class="QPushButton" name="pbExportImage">
+          <property name="font">
+           <font>
+            <family>Arial Black</family>
+            <pointsize>10</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
           <property name="text">
            <string>Export Images...</string>
           </property>
          </widget>
         </item>
         <item>
+         <widget class="QPushButton" name="pbExportVideo">
+          <property name="font">
+           <font>
+            <family>Arial Black</family>
+            <pointsize>10</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string>Export Video...</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QPushButton" name="pbExForCal">
+          <property name="font">
+           <font>
+            <family>Arial Black</family>
+            <pointsize>10</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
           <property name="text">
            <string>Export For Cal...</string>
           </property>
@@ -552,15 +636,14 @@
    <zorder>frame_2</zorder>
    <zorder>frame_3</zorder>
    <zorder>frame_4</zorder>
-   <zorder>horizontalLayoutWidget</zorder>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1103</width>
-     <height>22</height>
+     <width>1106</width>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -613,7 +696,7 @@
   <customwidget>
    <class>QImageViewer</class>
    <extends>QGraphicsView</extends>
-   <header>QImageViewer.QImageViewer</header>
+   <header>MaceFunctions.QImageViewer.QImageViewer</header>
   </customwidget>
   <customwidget>
    <class>QTickSlider</class>

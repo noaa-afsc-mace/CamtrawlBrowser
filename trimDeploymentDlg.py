@@ -51,8 +51,16 @@ class trimDeploymentDlg(QDialog, ui_trimDeploymentDlg.Ui_trimDialog):
 
 
     def trimClicked(self):
-        self.startFrame = int(self.leStart.text())
-        self.endFrame = int(self.leEnd.text())
+        try:
+            self.startFrame = int(self.leStart.text())
+        except:
+            QMessageBox.warning(self, 'What?', 'Start frame value is not valid.')
+            return
+        try:
+            self.endFrame = int(self.leEnd.text())
+        except:
+            QMessageBox.warning(self, 'What?', 'End frame value is not valid.')
+            return
         self.trimDeployment.emit(self.startFrame, self.endFrame)
         self.slider.removeTick('startTrim')
         self.slider.removeTick('endTrim')

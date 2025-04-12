@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.interpolate as interp
 import dbConnection
-from PyQt6 import QtCore
+from PyQt5 import QtCore
 
 
 def asc_file_to_depth(filename, latitude):
@@ -119,6 +119,9 @@ class calibrate_depth_sensor(QtCore.QObject):
         #camtrawlDb = 'C:/Users/rick.towler/Desktop/Coral Dropcam Depth Calibration'
         #camtrawlDb = 'C:/Users/rick.towler/Work/CoralDepthCal_23/D20230703-T022422'
 
+        camtrawlDb = '//192.168.117.64/data/DY2500/camtrawl/Haul_004/D20250225-T163320'
+
+
         #  define the path to the SBE data file (.asc) file
         #sbeASCFile = 'C:/Users/rick.towler/Desktop/Coral Dropcam Depth Calibration/calibration station.asc'
         sbeASCFile = 'C:/Users/rick.towler/Work/CoralDepthCal_23/testdrop2.asc'
@@ -128,26 +131,26 @@ class calibrate_depth_sensor(QtCore.QObject):
         sbe_latitude = 47.7
 
         #  specify the smoothing window for the CT depth data (needs to be odd)
-        smoothWindow = 15
+        smoothWindow = 3
 
         #  specify the existing slope and intercept of the camtrawl system
         #  obtained from the zoidberg app on camtrawl. These are used to back
         #  out the existing calibration to obtain raw sensor values.
-        ex_slope = 0.05703
-        ex_intercept = -159.5663
+        ex_slope = 0.0398
+        ex_intercept = -124.9
 
         #  Specify the time offset of CamTrawl when compared to the SBE data.
         #  If things are working this shouldn't be required and the offset
         #  should be set to 0
-        CamTrawlTimeOffset = 0# -60*60*7
+        CamTrawlTimeOffset =  40 * 3
 
 
         #  These settings are only relevant when useDatabase is set to True
 
         #  define the ship, survey, and event id we're going to pull the SBE data from
-        ship = '999'
-        survey = '201499'
-        event_id = '20'
+        ship = '157'
+        survey = '202500'
+        event_id = '4'
 
         #  define the SBE device ID of the SBE connected to CamTrawl
         #  THIS IS THE DEVICE ID, NOT THE SERIAL NUMBER
@@ -256,7 +259,6 @@ class calibrate_depth_sensor(QtCore.QObject):
         f = interp.interp1d(sbe_time, sbe_depth)
         sbe_depth_interp = f(ct_time)
 
-
         #  ------------   Compare the existing data   ------------
         #  create a figure
         fig = plt.figure(figsize=(12,7))
@@ -327,7 +329,8 @@ class calibrate_depth_sensor(QtCore.QObject):
 if __name__ == "__main__":
     import sys
     app = QtCore.QCoreApplication(sys.argv)
-    form = calibrate_depth_sensor('afsc-64', 'clamsbase2', 'pollock')
+    #form = calibrate_depth_sensor('afsc-64', 'clamsbase2', 'pollock')
+    form = calibrate_depth_sensor('macebase_dyson', 'clamsbase2', 'pollock')
     sys.exit(app.exec())
 
 

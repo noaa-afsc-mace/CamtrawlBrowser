@@ -7,18 +7,26 @@ import shutil
 import datetime
 import traceback
 import functools
+import argparse
+from pathlib import Path
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
 import numpy as np
+import cv2
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from ui import ui_CamtrawlBrowser
 import trimDeploymentDlg
-import CamtrawlMetadata
+import exportVideoDlg
+import progressDlg
+from MaceFunctions import CamtrawlMetadata
 import camseldlg
 
 class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
+
+    #  define class signals
+    exportProgress = pyqtSignal(int)
 
     def __init__(self, resetWindowPosition=False, parent=None):
         super(CamtrawlBrowser, self).__init__(parent)
@@ -42,6 +50,15 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
         self.trimDialog = trimDeploymentDlg.trimDeploymentDlg(self.imageSlider, parent=self)
         self.trimDialog.trimDeployment[int,int].connect(self.trimDeployment)
 
+        #  create an instance of the set recording bounds dialog
+        self.recBoundsDialog = exportVideoDlg.exportVideoDlg(self.imageSlider, parent=self)
+        self.recBoundsDialog.exportVideo.connect(self.exportVideo)
+
+        #  create an instance of the progress dialog
+        self.progressDlg = progressDlg.progressDlg(parent=self)
+        self.progressDlg.cancel.connect(self.cancelExport)
+        self.exportProgress.connect(self.progressDlg.updateProgress)
+
         #  connect the QImageViewer key press signals
         self.gvLeft.keyPress.connect(self.imageKeyPressEvent)
         self.gvRight.keyPress.connect(self.imageKeyPressEvent)
@@ -57,6 +74,7 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
         self.pbNextMark.clicked.connect(self.navigateToMark)
         self.pbDeleteMark.clicked.connect(self.removeMark)
         self.pbExportImage.clicked.connect(self.exportImages)
+        self.pbExportVideo.clicked.connect(self.showSetRecBounds)
         self.exportBtn.clicked.connect(self.exportData)
         self.pbTrim.clicked.connect(self.showTrimDeployment)
         self.pbExForCal.clicked.connect(self.exportForCal)
@@ -104,6 +122,7 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
         self.pbExForCal.setEnabled(False)
         self.gbPlay.setEnabled(False)
         self.gbMarks.setEnabled(False)
+        self.pbExportVideo.setEnabled(False)
 
         #  set the base directory path - this is the full path to this application
         self.baseDir = functools.reduce(lambda l,r: l + os.path.sep + r,
@@ -138,8 +157,11 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
         self.rightCamLabel = []
 
         #  load the help images
-        self.gvLeft.setImageFromFile(self.baseDir + os.sep + 'resources/help.png')
-        self.gvRight.setImageFromFile(self.baseDir + os.sep + 'resources/help.png')
+        try:
+            self.gvLeft.setImageFromFile(self.baseDir + os.sep + 'resources/help.png')
+            self.gvRight.setImageFromFile(self.baseDir + os.sep + 'resources/help.png')
+        except:
+            pass
         self.gvLeft.fillExtent()
         self.gvRight.fillExtent()
 
@@ -288,8 +310,162 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
         plt.show()
 
 
-    def showTrimDeployment(self):
 
+    def showSetRecBounds(self):
+        #  show the set recording bounds dialog - clicking the "Export Video" button in that
+        #  dialog will call the exportVideo method.
+        self.recBoundsDialog.baseRate = self.videoBaseRate
+        self.recBoundsDialog.show()
+
+
+    def exportVideo(self, startFrame, endFrame, multiplier, frameStep, showHud):
+        '''
+        exportVideo creates a video using the images between the provided
+        start and end frame numbers.
+        '''
+
+        def setVideoSize(size):
+            #  this method just makes sure the size is divisible by 4
+            #  which some codecs require
+            newSize = round(size / 4.) * 4
+            return newSize
+
+        #  get the name of the video we are exporting
+        videoFilename = QFileDialog.getSaveFileName(self, "Export video", self.copyDir,
+                'Videos (*.mp4)')
+        videoFilename = videoFilename[0]
+
+        if not videoFilename:
+            #  no name - no export
+            return
+
+        #  update the default output dir
+        self.copyDir = os.path.split(videoFilename)[0]
+        self.appSettings.setValue('copydir', self.copyDir)
+
+        #  make sure we have 'mp4' as the extension
+        filenameParts = list(Path(videoFilename).parts)
+        nameBits = filenameParts[-1].split('.')
+        if len(nameBits) > 1:
+            #  there is an extension - remove it
+            nameBits = filenameParts[-1].split('.')[:-1]
+        #  add mp4 as the extension
+        nameBits.append('mp4')
+        #  and join the filename into a string and replace the existing name
+        filename = '.'.join(nameBits)
+        filenameParts[-1] = filename
+        #  finally, join the whole path
+        videoFilename = os.sep.join(filenameParts)
+
+        #  and multiply by the speed multiplier for the final rate
+        videoFPS = self.videoBaseRate * multiplier
+
+        #  set some other export props
+        self.exportHUD = showHud
+        self.frameStep = frameStep
+
+        #  set the video frame bounds
+        self.exportFrame = startFrame
+        self.exportEndFrame = endFrame
+        self.exportedFrames = 0
+        self.exportTotalFrames = round((endFrame - startFrame) / float(frameStep))
+
+        #  determine the exported video dimensions
+        self.videoLeftSize = [setVideoSize(self.gvLeft.width()),
+                setVideoSize(self.gvLeft.height())]
+        self.videoRightSize = [setVideoSize(self.gvRight.width()),
+                setVideoSize(self.gvRight.height())]
+        videoWidth = self.videoLeftSize[0] + self.videoRightSize[0]
+        videoHeight = self.videoLeftSize[1]
+
+        #  create the video writer
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        self.videoWriter = cv2.VideoWriter(videoFilename, fourcc,
+                videoFPS, (videoWidth, videoHeight))
+
+        #  check that we were able to open the file
+        if not self.videoWriter.isOpened():
+            QMessageBox.error(self, 'Unable to open video',
+                    'Unable to open video file ' + videoFilename)
+            return
+
+        #  update the UI elements
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        self.statusBar.showMessage('Exporting Video...')
+        self.abortVideo = False
+        self.progressDlg.setText("Exporting video " + videoFilename)
+        self.exportProgress.emit(0)
+        self.progressDlg.show()
+
+        #  we use a timer to create frame writing events so we can easily
+        #  cancel the operation
+        self.videoTimer = QTimer(self)
+        self.videoTimer.setSingleShot(True)
+        self.videoTimer.timeout.connect(self.exportVideoFrame)
+        self.videoTimer.start(0)
+
+
+    def cancelExport(self):
+        '''
+        cancelExport is set when the user clicks the cancel button
+        on the export video progress dialog. It sets the abortVideo
+        state to true which results in the export stopping at the
+        next export timer event.
+        '''
+        self.abortVideo = True
+
+
+    def exportVideoFrame(self):
+
+        #  advance the slider to update the images
+        nextIndex = self.metadata.imageNumbers.index(self.exportFrame)
+        self.imageSlider.setValue(nextIndex)
+
+        pctExported = round(self.exportedFrames / float(self.exportTotalFrames)  * 100.)
+        self.exportProgress.emit(pctExported)
+
+        #  render the images and combine
+        if self.exportHUD:
+            rightFrame = self.gvRight.renderView(width=self.videoRightSize[0],
+                    height=self.videoRightSize[1], asNDarray=True)
+            leftFrame = self.gvLeft.renderView(width=self.videoLeftSize[0],
+                    height=self.videoLeftSize[1], asNDarray=True)
+        else:
+            rightFrame = self.gvRight.renderScene(width=self.videoRightSize[0],
+                    height=self.videoRightSize[1], asNDarray=True)
+            leftFrame = self.gvLeft.renderScene(width=self.videoLeftSize[0],
+                    height=self.videoLeftSize[1], asNDarray=True)
+        combinedFrame = cv2.hconcat([leftFrame, rightFrame])
+
+        #  remove the alpha layer
+        combinedFrame = cv2.cvtColor(combinedFrame, cv2.COLOR_BGRA2BGR)
+
+        #  write the frame
+        self.videoWriter.write(combinedFrame)
+
+        #  increment the counter
+        self.exportFrame += self.frameStep
+        self.exportedFrames += 1
+
+        if self.exportFrame > self.exportEndFrame or self.abortVideo:
+            #  we're done with this video
+            self.videoWriter.release()
+
+            #  clean up the UI elements
+            self.progressDlg.setText("")
+            self.exportProgress.emit(0)
+            self.progressDlg.hide()
+            self.statusBar.clearMessage()
+            QApplication.restoreOverrideCursor()
+
+        else:
+            #  we're still going - reset the timer
+            self.videoTimer.start(1)
+
+
+    def showTrimDeployment(self):
+        #  show the trim deployment dialog - clicking the "Trim Deployment" button in that
+        #  dialog will call the trimDeployment method.
         self.trimDialog.show()
 
 
@@ -422,6 +598,7 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
             self.pbExForCal.setEnabled(False)
             self.gbPlay.setEnabled(False)
             self.gbMarks.setEnabled(False)
+            self.pbExportVideo.setEnabled(False)
 
             try:
                 #  read the image metadata
@@ -430,6 +607,17 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
                 self.metadata.open(self.dataDir)
                 self.metadata.query()
                 self.metadata.updateDeployentMetadata()
+
+                #  determine the base video speed. First get the average interval
+                camIntervals = self.metadata.getIntervalAverage()
+
+                #  then determine the minimum interval (which is the maximum rate)
+                minInterval = 9999999
+                for camera in camIntervals:
+                    if minInterval > camIntervals[camera]:
+                        minInterval = camIntervals[camera]
+                #  and then compute FPS
+                self.videoBaseRate = 1.0 / minInterval
 
                 #  and load the deployment
                 self.loadDeployment()
@@ -614,6 +802,7 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
         self.pbExForCal.setEnabled(True)
         self.gbPlay.setEnabled(True)
         self.gbMarks.setEnabled(True)
+        self.pbExportVideo.setEnabled(True)
 
         #  add the mark ticks to the scrollbar
         self.imageSlider.removeAllTicks()
@@ -886,25 +1075,40 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
         file name.
         """
 
-        #  get the export directory name
-        dirDlg = QFileDialog(self)
-        dirName = dirDlg.getExistingDirectory(self, 'Select Export Location', self.copyDir,
-                QFileDialog.Option.ShowDirsOnly)
-        if (dirName):
+        #  get the export file name - propose a default filename based on the current image filename
+        imageName = os.path.split(self.LFile)[1]
+        defaultFilename = self.copyDir + os.sep + '_'.join(imageName.split('_')[:-1]) + '.jpg'
+        exportFilename = QFileDialog.getSaveFileName(self, "Save Images", defaultFilename,
+                'Images (*.png *.jpg *.tif)')
+        exportFilename = exportFilename[0]
 
-            dirName = str(dirName)
-            #  build the export file name and export the left image
-            p, f = os.path.split(str(self.LFile))
-            filename = dirName + os.path.sep + f
-            filename = os.path.normpath(filename)
-            self.gvLeft.saveImage(filename)
+        #  make sure we have a name
+        if not exportFilename:
+            #  no name - no export
+            return
 
-            #  build the export file name and export the right image
-            p, f = os.path.split(str(self.RFile))
-            filename = dirName + os.path.sep + f
-            filename = os.path.normpath(filename)
-            self.gvRight.saveImage(filename)
+        #  update the default output dir
+        self.copyDir = os.path.split(exportFilename)[0]
 
+        #  render the images and combine - for now we don't have a way to enable/disable
+        #  HUD export so we're just forcing it.
+        if True: #self.exportHUD:
+            rightFrame = self.gvRight.renderView(width=self.gvRight.width(),
+                    height=self.gvRight.height(), asNDarray=True)
+            leftFrame = self.gvLeft.renderView(width=self.gvLeft.width(),
+                    height=self.gvLeft.height(), asNDarray=True)
+        else:
+            rightFrame = self.gvRight.renderScene(width=self.gvRight.width(),
+                    height=self.gvRight.height(), asNDarray=True)
+            leftFrame = self.gvLeft.renderScene(width=self.gvLeft.width(),
+                    height=self.gvLeft.height(), asNDarray=True)
+        combinedFrame = cv2.hconcat([leftFrame, rightFrame])
+
+        #  remove the alpha layer
+        combinedFrame = cv2.cvtColor(combinedFrame, cv2.COLOR_BGRA2BGR)
+
+        #  write the image
+        cv2.imwrite(exportFilename, combinedFrame)
 
 
     def speedSet(self):
@@ -1034,10 +1238,26 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
 
         return [newPosition, newSize]
 
+
 if __name__ == "__main__":
 
+    #  create the argument parser. Set the application description.
+    parser = argparse.ArgumentParser(description='CamtrawlEchogram')
+
+    #  specify optional keyword arguments
+    parser.add_argument("--reset_window", default=False, action='store_true',
+            help="Reset the window location(s) to their default values")
+
+    #  parse our arguments
+    args = parser.parse_args()
+
+    #  create an application instance
     app = QApplication(sys.argv)
-    form = CamtrawlBrowser()
-    form.show()
+
+    #  create the main application window
+    window = CamtrawlBrowser(resetWindowPosition=args.reset_window)
+    window.show()
+
+    #  start event processing
     app.exec()
 
