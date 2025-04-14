@@ -310,7 +310,6 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
         plt.show()
 
 
-
     def showSetRecBounds(self):
         #  show the set recording bounds dialog - clicking the "Export Video" button in that
         #  dialog will call the exportVideo method.
@@ -371,10 +370,10 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
         self.exportTotalFrames = round((endFrame - startFrame) / float(frameStep))
 
         #  determine the exported video dimensions
-        self.videoLeftSize = [setVideoSize(self.gvLeft.width()),
-                setVideoSize(self.gvLeft.height())]
-        self.videoRightSize = [setVideoSize(self.gvRight.width()),
-                setVideoSize(self.gvRight.height())]
+        self.videoLeftSize = [setVideoSize(self.gvLeft.renderedWidth()),
+                setVideoSize(self.gvLeft.renderedHeight())]
+        self.videoRightSize = [setVideoSize(self.gvRight.renderedWidth()),
+                setVideoSize(self.gvRight.renderedHeight())]
         videoWidth = self.videoLeftSize[0] + self.videoRightSize[0]
         videoHeight = self.videoLeftSize[1]
 
@@ -452,6 +451,8 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
             self.videoWriter.release()
 
             #  clean up the UI elements
+            self.imageSlider.removeTick('Start Video')
+            self.imageSlider.removeTick('End Video')
             self.progressDlg.setText("")
             self.exportProgress.emit(0)
             self.progressDlg.hide()
@@ -604,6 +605,7 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
                 #  read the image metadata
                 QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
                 self.statusBar.showMessage('Reading metadata...')
+                QApplication.processEvents()
                 self.metadata.open(self.dataDir)
                 self.metadata.query()
                 self.metadata.updateDeployentMetadata()
@@ -622,6 +624,7 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
                 #  and load the deployment
                 self.loadDeployment()
                 QApplication.restoreOverrideCursor()
+                QApplication.processEvents()
 
             except:
                 #  no metadata database present, can't work with this
@@ -1093,10 +1096,8 @@ class CamtrawlBrowser(QMainWindow, ui_CamtrawlBrowser.Ui_CamtrawlBrowser):
         #  render the images and combine - for now we don't have a way to enable/disable
         #  HUD export so we're just forcing it.
         if True: #self.exportHUD:
-            rightFrame = self.gvRight.renderView(width=self.gvRight.width(),
-                    height=self.gvRight.height(), asNDarray=True)
-            leftFrame = self.gvLeft.renderView(width=self.gvLeft.width(),
-                    height=self.gvLeft.height(), asNDarray=True)
+            rightFrame = self.gvRight.renderView(asNDarray=True)
+            leftFrame = self.gvLeft.renderView(asNDarray=True)
         else:
             rightFrame = self.gvRight.renderScene(width=self.gvRight.width(),
                     height=self.gvRight.height(), asNDarray=True)

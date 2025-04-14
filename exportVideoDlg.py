@@ -26,6 +26,8 @@ class exportVideoDlg(QDialog, ui_setRecordingBoundsDlg.Ui_recBoundsDialog):
         #  hide the ShowHUD checkbox if we're not enabling that option
         if not self.enableHudOption:
             self.cbHUD.hide()
+        else:
+            self.cbHUD.setChecked(True)
 
         #  connect the signals
         self.pbSetStart.clicked.connect(self.setStart)
@@ -93,8 +95,6 @@ class exportVideoDlg(QDialog, ui_setRecordingBoundsDlg.Ui_recBoundsDialog):
         frameStep = self.sbNFrames.value()
 
         self.exportVideo.emit(self.startFrame, self.endFrame, speed, frameStep, showHud)
-        self.slider.removeTick('Start Video')
-        self.slider.removeTick('End Video')
         self.accept()
 
 
