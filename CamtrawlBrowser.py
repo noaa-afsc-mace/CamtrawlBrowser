@@ -1245,12 +1245,33 @@ if __name__ == "__main__":
     #  create the argument parser. Set the application description.
     parser = argparse.ArgumentParser(description='CamtrawlEchogram')
 
+    #  specify the positional arguments: ODBC connection, username, password
+    parser.add_argument("odbc_connection", nargs='?', help="The name of the ODBC connection used to connect to the database.")
+    parser.add_argument("username", nargs='?', help="The username used to log into the database.")
+    parser.add_argument("password", nargs='?', help="The password for the specified username.")
+
     #  specify optional keyword arguments
+    parser.add_argument("-a", "--acoustic_schema", help="Specify the acoustic database schema to use.")
+    parser.add_argument("-b", "--bio_schema", help="Specify the biological database schema to use.")
     parser.add_argument("--reset_window", default=False, action='store_true',
             help="Reset the window location(s) to their default values")
 
     #  parse our arguments
     args = parser.parse_args()
+
+    #  and assign to our vars (and convert from unicode to standard strings)
+    if (args.acoustic_schema):
+        #  strip off the leading space (if any)
+        acoustic_schema = str(args.acoustic_schema).strip()
+    if (args.bio_schema):
+        #  strip off the leading space (if any)
+        bio_schema = str(args.bio_schema).strip()
+    if (args.odbc_connection):
+        odbc_connection = str(args.odbc_connection)
+    if (args.username):
+        username = str(args.username)
+    if (args.password):
+        password = str(args.password)
 
     #  create an application instance
     app = QApplication(sys.argv)
